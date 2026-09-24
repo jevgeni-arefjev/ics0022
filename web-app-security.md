@@ -1,12 +1,13 @@
 # Web GUI — Architecture & Security
 
 Core document: `secure-password-manager.md`
+This project builds on top of ICS0022 Secure Programming course project. 
 
 ## 1. Scope
 
 This documents covers everything the HTTP surface introduces: TLS, accounts and login, server-side sessions, CSRF, CSP and per-request authorization.
 
-Everything regarding encryption, storage and other modules in found in `secure-password-manager.md`.
+Everything regarding encryption, storage and other modules in found in `secure-password-manager.md`. It is covered server-side in Rust, as part of ICS0022 Secure Programming course project. 
 
 ## 2. Architecture
 
@@ -23,7 +24,7 @@ flowchart LR
 ```
 
 In addition to main architecture, the `vault-web` module is added, which is responsible for TLS and session management. 
-**Typescript** is used for UI only (and network protocols), main vault logic is in **Rust**.
+**Typescript** is used for UI only (and network protocols), main vault logic including memory handling and encryption is in **Rust**.
 
 ### Data flow
 
@@ -53,9 +54,12 @@ SQL is not in the web layer, all statements parameterized in the core.
 
 Master-password, vault-at-rest and vault-in-memory analysis in `secure-password-manager.md` §4.
 
+- The browser is treated as semi-trusted - the user's own, but running extensions and other tabs. Thus, checking session state is necessary.
+- User's input is validated before forwarding to inner modules.
+
 ### Out of scope
 
-- The browser is treated as semi-trusted - the user's own, but running extensions and other tabs.
+- User's browser session is trusted when the vault is unlocked.
 
 ### Threat analysis
 
@@ -66,6 +70,22 @@ Master-password, vault-at-rest and vault-in-memory analysis in `secure-password-
 | Session | Session left unattended | Auto-lock in 5 min, clear browser cache |
 | Access control | Request naming another user's record | User resolved from the session only, then the core's ownership check; return 404 |
 | Injection | Malicious input reaching a query or rendered as markup | Parameterized statements; validation, no inline scripts |
+
+### OWASP Top 10 2025
+
+| OWASP 2025 | Covered by the threat model |
+| --- | --- |
+| A01 Broken Access Control |	Bearer token on every request; Origin checks and CORS block cross-origin calls; lock kills all tokens |
+| A02 Security Misconfiguration	| Strict CSP |
+| A03 Software Supply Chain Failures | Client bundle is served from inside the binary and nothing is fetched at runtime |
+| A04 Cryptographic Failures | Crypto runs only in Rust, using Argon2id and AES / ChaCha20, proven libraries are used |
+| A05 Injection	Entry | fields are escaped as text, never set with innerHTML; URL schemes allowlisted; CSP as backup |
+| A06 Insecure Design |	:) |
+| A07 Authentication Failures |	Generic unlock error with constant delay; tokens in memory only, rotated; server-side idle timeout. |
+| A08 Software or Data Integrity Failures |	Authenticated header blocks tampering, revision counter blocks rollback, atomic rename on save. |
+| A09 Security Logging and Alerting Failures | Audit log module in `secure-password-manager.md` |
+| A10 Mishandling of Exceptional Conditions	| Panic on any error; locks UI with 401 generic error |
+
 
 ## 5. Planned pages
 
